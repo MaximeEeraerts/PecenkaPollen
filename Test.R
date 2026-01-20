@@ -22,6 +22,7 @@ data <- read_excel("Data/PecenkaPollen_DataForR.xlsx")
 str(data)
 attach(data)
 
+## Run models -----
 ### Data checks
 # select response variables
 testvar = data$Tree
@@ -29,6 +30,7 @@ testvar = data$Crop
 testvar = data$Clover
 testvar = (data$HerbaceousFlower + data$Weed + data$Goldenrod)
 # Exclude testvar = data$Grass
+testvar = data$SR
 
 # Check outliers of response
 dotchart(testvar)
@@ -36,16 +38,16 @@ boxplot(testvar)
 histogram(testvar)
 
 # Models
-# depending on the data, use gaussian or tweedie (in case of many zeros)
+# depending on the data, use poisson (SR), gaussian (H) or tweedie (in case of many zeros)
 # testing a quadratic effect of time has no effect for any of the plant types
 mod1 <- glmmTMB(testvar ~ scale(Time3) + Treatment + scale(Crop_3km) + (1|Site_ID/Year),
-                family = tweedie, data = data)
+                family = gaussian, data = data)
 mod1i <- glmmTMB(testvar ~ scale(Time3) + Treatment*scale(Crop_3km) + (1|Site_ID/Year),
-                family = tweedie, data = data)
+                family = gaussian, data = data)
 mod2 <- glmmTMB(testvar ~ scale(Time3) + Treatment + scale(Crop_1km) + (1|Site_ID/Year),
-                family = tweedie, data = data)
+                family = gaussian, data = data)
 mod2i <- glmmTMB(testvar ~ scale(Time3) + Treatment*scale(Crop_1km) + (1|Site_ID/Year),
-                family = tweedie, data = data)
+                family = gaussian, data = data)
 summary(mod1i)
 summary(mod2i)
 
@@ -70,7 +72,8 @@ testDispersion(res)
 testZeroInflation(res)
 
 
-### Plot
+
+## Plot ----
 # Shannonn and crop cover
 mod = glmmTMB(H ~ Time3 + Treatment + Crop_3km + (1|Site_ID) + (1|Year),
                family = gaussian, data = data)
@@ -139,4 +142,55 @@ Herb
 plot_grid(Shannon, Tree, Clover, Herb, 
            labels = c('A', 'B', 'C', 'D'),  
            ncol = 2)
-ggsave("Fig1.png", width = 3.5, height = 3, dpi = 300)
+ggsave("figures/Fig1.png", width = 6, height = 6, dpi = 150)
+
+
+
+## Stacked barplot 
+str(data)
+
+data2 = data %>%
+  mutate(Herbaceous = (HerbaceousFlower+Weed+Goldenrod))
+
+data3 = data2 %>%
+  select(Site_id, Year, Site, Treatment, Time2, Tree, Crop, Clover, Herbaceous)
+
+data4 <- data3 %>%  
+  select(Site_id, Year, Site, Treatment, Time2, Tree, Crop, Clover, Herbaceous) %>% 
+  group_by(Time2) %>% 
+  summarise(across(Tree:Herbaceous, .fns = mean))
+
+data5 <- data4 %>%
+  pivot_longer(
+  cols = c(Tree, Crop, Clover, Herbaceous),
+  names_to = "Plant_Category",
+  values_to = "Proportion_of_Sample"
+)
+
+# Define the desired order of studies
+desired_order1 <- c("Late June", "Early July", "Late July", "Early August", 
+                    "Late August", "Early September")  # Customize this order
+# Convert taxa to a factor with the specified order
+data5$time3 <- factor(data5$Time2, levels = desired_order1)
+
+# Define the desired order of taxa
+desired_order2 <- c("Tree", "Crop", "Clover", "Herbaceous")  # Customize this order
+# Convert taxa to a factor with the specified order
+data5$plant_category <- factor(data5$Plant_Category, levels = desired_order2)
+
+# Define custom colors for each taxa
+taxa_colors <- c("Tree" = "darkgreen", "Crop" = "yellow", 
+                 "Clover" = "#7570b3", "Herbaceous" = "brown")
+
+# # Define custom names for the legend
+# taxa_labels <- c("HB" = "Honingbij", "BB" = "Hommels", "SB" = "Solitaire bijen", 
+#                  "HF" = "Zweefvliegen", "BF" = "Vlinders", "WA" = "Wespen")
+
+# Create stacked bar plot
+ggplot(data5, aes(x = time3, y = Proportion_of_Sample, fill = plant_category)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Time period", y = "Plant type in pollen (%)", fill = "Plant type") +
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = taxa_colors)  # Manually assign colors
+ggsave("figures/Fig2.png", width = 6, height = 4, dpi = 150)
