@@ -69,3 +69,74 @@ testDispersion(res)
 # zero inflation test 
 testZeroInflation(res)
 
+
+### Plot
+# Shannonn and crop cover
+mod = glmmTMB(H ~ Time3 + Treatment + Crop_3km + (1|Site_ID) + (1|Year),
+               family = gaussian, data = data)
+summary(mod)
+Predicttestvar<-as.data.frame(effect("Crop_3km",mod,xlevels=50))
+Shannon = ggplot(data=data, aes(x=Crop_3km))+
+  geom_ribbon(data=Predicttestvar, aes(ymin=lower, ymax=upper), fill="red",alpha=0.1)+
+  geom_line(data=Predicttestvar, aes(x=Crop_3km, y=fit),color="red", alpha = 1)+
+  geom_jitter(aes(y=H), show.legend = FALSE, shape = 1, size = 0.75, alpha = 0.5, 
+              height = 0.1, width = 1) +
+  xlab("Crop cover 3 km (%)")+
+  ylab("Shannon diversity pollen")+
+  theme_classic()
+Shannon
+
+# Trees and time
+mod1 = glmmTMB(Tree ~ Time3 + Treatment + Crop_3km + (1|Site_ID/Year),
+              family = tweedie, data = data)
+summary(mod1)
+Predicttestvar1<-as.data.frame(effect("Time3",mod1,xlevels=50))
+Tree = ggplot(data=data, aes(x=Time3))+
+  geom_ribbon(data=Predicttestvar1, aes(ymin=lower, ymax=upper), fill="red",alpha=0.1)+
+  geom_line(data=Predicttestvar1, aes(x=Time3, y=fit),color="red", alpha = 1)+
+  geom_jitter(aes(y=Tree), show.legend = FALSE, shape = 1, size = 0.75, alpha = 0.5, 
+              height = 0.1, width = 1) +
+  xlab("Julian day")+
+  scale_y_continuous(limits = c(-0, 100))+
+  ylab("Tree and shrub pollen (%)")+
+  theme_classic()
+Tree
+
+# Clovers and time
+mod2 = glmmTMB(Clover ~ Time3 + Treatment + Crop_3km + (1|Site_ID/Year),
+               family = tweedie, data = data)
+summary(mod2)
+Predicttestvar2<-as.data.frame(effect("Time3",mod2,xlevels=50))
+Clover = ggplot(data=data, aes(x=Time3))+
+  geom_ribbon(data=Predicttestvar2, aes(ymin=lower, ymax=upper), fill="red",alpha=0.1)+
+  geom_line(data=Predicttestvar2, aes(x=Time3, y=fit),color="red", alpha = 1)+
+  geom_jitter(aes(y=Clover), show.legend = FALSE, shape = 1, size = 0.75, alpha = 0.5, 
+              height = 0.1, width = 1) +
+  xlab("Julian day")+
+  scale_y_continuous(limits = c(-0, 100))+
+  ylab("Clover pollen (%)")+
+  theme_classic()
+Clover
+
+# Herbs and time
+testvar = (data$HerbaceousFlower + data$Weed + data$Goldenrod)
+mod3 = glmmTMB(testvar ~ Time3 + Treatment + Crop_3km + (1|Site_ID/Year),
+               family = tweedie, data = data)
+summary(mod3)
+Predicttestvar3<-as.data.frame(effect("Time3",mod3,xlevels=50))
+Herb = ggplot(data=data, aes(x=Time3))+
+  geom_ribbon(data=Predicttestvar3, aes(ymin=lower, ymax=upper), fill="red",alpha=0.1)+
+  geom_line(data=Predicttestvar3, aes(x=Time3, y=fit),color="red", alpha = 1)+
+  geom_jitter(aes(y=testvar), show.legend = FALSE, shape = 1, size = 0.75, alpha = 0.5, 
+              height = 0.1, width = 1) +
+  xlab("Julian day")+
+  scale_y_continuous(limits = c(-0, 100))+
+  ylab("Herbaceous pollen (%)")+
+  theme_classic()
+Herb
+
+# Plot figures together
+plot_grid(Shannon, Tree, Clover, Herb, 
+           labels = c('A', 'B', 'C', 'D'),  
+           ncol = 2)
+ggsave("Fig1.png", width = 3.5, height = 3, dpi = 300)
